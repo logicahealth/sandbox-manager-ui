@@ -154,6 +154,12 @@ export function addFetchedResource(resource) {
     }
 }
 
+export function resetFetchedResource() {
+    return {
+        type: actionTypes.RESET_ANY_RESOURCE
+    }
+}
+
 export function clearResourceFetch(type) {
     return {
         type: actionTypes.CLEAR_RESOURCE_FETCH,
@@ -309,6 +315,13 @@ export const setCreatingSandbox = (creating, info) => {
     return {
         type: actionTypes.CREATING_SANDBOX,
         payload: {creating, info}
+    }
+};
+
+export const setSandboxExtracting = sandboxId => {
+    return {
+        type: actionTypes.EXTRACTING_SANDBOX,
+        payload: {sandboxId}
     }
 };
 
@@ -681,6 +694,11 @@ export const createSandbox = (sandboxDetails) => {
             if (sandboxDetails.dataSet === "NONE") {
                 clonedSandbox.sandboxId = "MasterR4Empty";
             }
+        } else if (sandboxDetails.apiEndpointIndex === "11") {
+            clonedSandbox.sandboxId = "MasterR5Empty";
+            // if (sandboxDetails.dataSet === "NONE") {
+            //     clonedSandbox.sandboxId = "MasterR5Empty";
+            // }
         }
         let cloneBody = {
             "clonedSandbox": clonedSandbox,
@@ -795,6 +813,22 @@ export const fetchSandboxInvites = () => {
             })
             .catch(err => {
                 dispatch(fetchSandboxInvitesFail(err));
+            })
+    };
+};
+
+export const exportSandbox = sandboxId => {
+    return (dispatch, getState) => {
+        const state = getState();
+        let configuration = state.config.xsettings.data.sandboxManager;
+        dispatch(setSandboxExtracting(sandboxId));
+
+        API.download(configuration.sandboxManagerApiUrl + '/sandbox/download/' + sandboxId, dispatch, `${sandboxId}_export.zip`)
+            .then(() => {
+                dispatch(setSandboxExtracting(sandboxId));
+            })
+            .catch(() => {
+                dispatch(setSandboxExtracting(sandboxId));
             })
     };
 };
@@ -946,6 +980,25 @@ export function fetchAnyResource(type, id) {
                 .fail(e => {
                     dispatch(setFetchingAnyResourceError(type, e));
                     dispatch(setFetchAnyResource(false, type))
+                });
+        }
+    }
+}
+
+export function searchAnyResource(type, crit) {
+    return dispatch => {
+        if (window.fhirClient) {
+            dispatch(resetFetchedResource());
+            dispatch(setFetchAnyResource(true, type));
+            window.fhirClient.api.search({type, query: crit})
+                .done(res => {
+                    res.data.resourceType = type;
+                    dispatch(addFetchedResource(res.data));
+                    dispatch(setFetchAnyResource(false, type));
+                })
+                .fail(e => {
+                    dispatch(setFetchingAnyResourceError(type, e));
+                    dispatch(setFetchAnyResource(false, type));
                 });
         }
     }
